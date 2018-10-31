@@ -1,0 +1,6 @@
+*.zip
+*.docx
+*.exe
+*.stackdump
+*.o
+tags
