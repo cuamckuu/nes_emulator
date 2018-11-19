@@ -34,6 +34,15 @@ struct CPU {
 	void run(long cycles, bool debug);
     bool is_flag_set(byte flag);
 
+private: //Flags check
+    void update_carry_flag(bool is_set);
+    void update_zero_flag(word value);
+    void update_interrupt_flag(word value);
+    void update_decimal_flag(word value);
+    void update_break_flag(word value);
+    void update_overflow_flag(word value);
+    void update_negative_flag(word value);
+
 private: //CPU instructions
     void cpu_nul();
 
@@ -125,7 +134,6 @@ private: //CPU Adressing modes
     void cpu_address_indirect();
     void cpu_address_indirect_x();
     void cpu_address_indirect_y();
-
 };
 
 #endif //CPU_H

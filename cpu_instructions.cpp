@@ -20,15 +20,15 @@ void Instruction::log_info() {
         memcpy(&result.name, #_name, 4); \
         result.bytes = _bytes; \
         result.cycles = _cycles; \
-        result.func_ptr = &cpu_##_name; \
-        result.address_func_ptr = &cpu_address_##_mode; \
+        result.func_ptr = &CPU::cpu_##_name; \
+        result.address_func_ptr = &CPU::cpu_address_##_mode; \
     } \
 
 Instruction CPU::get_instruction(byte op_code) {
     Instruction result;
     result.op_code = op_code; // To see unimplemented OP code
-    result.func_ptr = &cpu_nul; // Prevent segfault if instruction not implemented
-    result.address_func_ptr = &cpu_address_implied;
+    result.func_ptr = &CPU::cpu_nul; // Prevent segfault if instruction not implemented
+    result.address_func_ptr = &CPU::cpu_address_implied;
 
     INST(0xff, nul, 1, 1, implied);
     INST(0x78, sei, 1, 2, implied);
@@ -36,7 +36,6 @@ Instruction CPU::get_instruction(byte op_code) {
     INST(0x9a, txs, 1, 2, implied);
     INST(0xad, lda, 3, 4, absolute);
     INST(0x10, bpl, 2, 2, relative);
-    INST(0x86, stx, 2, 3, zero_page);
     INST(0x20, jsr, 3, 6, absolute);
     INST(0xea, nop, 1, 2, implied);
     INST(0x38, sec, 1, 2, implied);
@@ -47,7 +46,6 @@ Instruction CPU::get_instruction(byte op_code) {
     INST(0x90, bcc, 2, 2, relative);
     INST(0xf0, beq, 2, 2, relative);
     INST(0xd0, bne, 2, 2, relative);
-    INST(0x85, sta, 2, 3, zero_page);
     INST(0x24, bit, 2, 3, zero_page);
     INST(0x70, bvs, 2, 2, relative);
     INST(0x50, bvc, 2, 2, relative);
@@ -129,6 +127,43 @@ Instruction CPU::get_instruction(byte op_code) {
     INST(0xe8, inx, 1, 2, implied);
     INST(0xc8, iny, 1, 2, implied);
 
+    INST(0xe0, cpx, 2, 2, immediate);
+    INST(0xe4, cpx, 2, 3, zero_page);
+    INST(0xec, cpx, 3, 4, absolute);
+
+    INST(0xc0, cpy, 2, 2, immediate);
+    INST(0xc4, cpy, 2, 3, zero_page);
+    INST(0xcc, cpy, 3, 4, absolute);
+
+    INST(0x86, stx, 2, 3, zero_page);
+    INST(0x96, stx, 2, 4, zero_page_y);
+    INST(0x8e, stx, 3, 4, absolute);
+
+    INST(0x84, sty, 2, 3, zero_page);
+    INST(0x94, sty, 2, 4, zero_page_y);
+    INST(0x8c, sty, 3, 4, absolute);
+
+    INST(0x85, sta, 2, 3, zero_page);
+    INST(0x95, sta, 2, 4, zero_page_x);
+    INST(0x8d, sta, 3, 4, absolute);
+    INST(0x9d, sta, 3, 5, absolute_x);
+    INST(0x99, sta, 3, 5, absolute_y);
+    INST(0x81, sta, 2, 6, indirect_x);
+    INST(0x91, sta, 2, 6, indirect_y);
+
+    INST(0xe6, inc, 2, 5, zero_page);
+    INST(0xf6, inc, 2, 6, zero_page_x);
+    INST(0xee, inc, 3, 6, absolute);
+    INST(0xfe, inc, 3, 7, absolute_x);
+
+    INST(0xca, dex, 1, 2, implied);
+    INST(0x88, dey, 1, 2, implied);
+
+    INST(0xc6, dec, 2, 5, zero_page);
+    INST(0xd6, dec, 2, 6, zero_page_x);
+    INST(0xce, dec, 3, 6, absolute);
+    INST(0xde, dec, 3, 7, absolute_x);
+
     return result;
 }
 
@@ -141,49 +176,24 @@ void CPU::cpu_lda() {
 // - load a with m
     A = op_value;
 
-    if (A == 0) {
-        P |= zero_flag;
-    } else {
-        P &= ~zero_flag;
-    }
-
-    if ((A >> 7) & 0x1) {
-        P |= negative_flag;
-    } else {
-        P &= ~negative_flag;
-    }
+    update_zero_flag(A);
+    update_negative_flag(A);
 };
 
 void CPU::cpu_ldx() {
 // - load x with m
     X = op_value;
-    if (X == 0) {
-        P |= zero_flag;
-    } else {
-        P &= ~zero_flag;
-    }
 
-    if ((X >> 7) & 0x1) {
-        P |= negative_flag;
-    } else {
-        P &= ~negative_flag;
-    }
+    update_zero_flag(X);
+    update_negative_flag(X);
 };
 
 void CPU::cpu_ldy() {
 // - load y with m
     Y = op_value;
-    if (Y == 0) {
-        P |= zero_flag;
-    } else {
-        P &= ~zero_flag;
-    }
 
-    if ((Y >> 7) & 0x1) {
-        P |= negative_flag;
-    } else {
-        P &= ~negative_flag;
-    }
+    update_zero_flag(Y);
+    update_negative_flag(Y);
 };
 
 void CPU::cpu_sta() {
@@ -198,41 +208,23 @@ void CPU::cpu_stx() {
 
 void CPU::cpu_sty() {
 // - store y in m
-
+    memory[op_address] = Y;
 };
 
 void CPU::cpu_tax() {
 // - transfer a to x
     X = A;
 
-    if (X == 0) {
-        P |= zero_flag;
-    } else {
-        P &= ~zero_flag;
-    }
-
-    if ((X >> 7) & 0x01) {
-        P |= negative_flag;
-    } else {
-        P &= ~negative_flag;
-    }
+    update_zero_flag(X);
+    update_negative_flag(X);
 };
 
 void CPU::cpu_tay() {
 // - transfer a to y
     Y = A;
 
-    if (Y == 0) {
-        P |= zero_flag;
-    } else {
-        P &= ~zero_flag;
-    }
-
-    if ((Y >> 7) & 0x01) {
-        P |= negative_flag;
-    } else {
-        P &= ~negative_flag;
-    }
+    update_zero_flag(Y);
+    update_negative_flag(Y);
 };
 
 void CPU::cpu_tsx() {
@@ -244,17 +236,8 @@ void CPU::cpu_txa() {
 // - transfer x to a
     A = X;
 
-    if (A == 0) {
-        P |= zero_flag;
-    } else {
-        P &= ~zero_flag;
-    }
-
-    if ((A >> 7) & 0x01) {
-        P |= negative_flag;
-    } else {
-        P &= ~negative_flag;
-    }
+    update_zero_flag(A);
+    update_negative_flag(A);
 };
 
 void CPU::cpu_txs() {
@@ -266,17 +249,8 @@ void CPU::cpu_tya() {
 // - transfer y to a
     A = Y;
 
-    if (A == 0) {
-        P |= zero_flag;
-    } else {
-        P &= ~zero_flag;
-    }
-
-    if ((A >> 7) & 0x01) {
-        P |= negative_flag;
-    } else {
-        P &= ~negative_flag;
-    }
+    update_zero_flag(A);
+    update_negative_flag(A);
 };
 
 //Math
@@ -287,56 +261,50 @@ void CPU::cpu_adc() {
 
 void CPU::cpu_dec() {
 // - decrement m by one
+    memory[op_address] -= 1;
 
+    update_zero_flag(memory[op_address]);
+    update_negative_flag(memory[op_address]);
 };
 
 void CPU::cpu_dex() {
 // - decrement x by one
+    X -= 1;
 
+    update_zero_flag(X);
+    update_negative_flag(X);
 };
 
 void CPU::cpu_dey() {
 // - decrement y by one
+    Y -= 1;
 
+    update_zero_flag(Y);
+    update_negative_flag(Y);
 };
 
 void CPU::cpu_inc() {
 // - increment m by one
+    memory[op_address] += 1;
 
+    update_zero_flag(memory[op_address]);
+    update_negative_flag(memory[op_address]);
 };
 
 void CPU::cpu_inx() {
 // - increment x by one
     X += 1;
 
-    if (X == 0) {
-        P |= zero_flag;
-    } else {
-        P &= ~zero_flag;
-    }
-
-    if ((X >> 7) & 0x01) {
-        P |= negative_flag;
-    } else {
-        P &= ~negative_flag;
-    }
+    update_zero_flag(X);
+    update_negative_flag(X);
 };
 
 void CPU::cpu_iny() {
 // - increment y by one
     Y += 1;
 
-    if (Y == 0) {
-        P |= zero_flag;
-    } else {
-        P &= ~zero_flag;
-    }
-
-    if ((Y >> 7) & 0x01) {
-        P |= negative_flag;
-    } else {
-        P &= ~negative_flag;
-    }
+    update_zero_flag(Y);
+    update_negative_flag(Y);
 };
 
 void CPU::cpu_sbc() {
@@ -349,17 +317,8 @@ void CPU::cpu_and() {
 // - "and" m with a
     A &= op_value;
 
-    if (A == 0) {
-        P |= zero_flag;
-    } else {
-        P &= ~zero_flag;
-    }
-
-    if ((A >> 7) & 0x1) {
-        P |= negative_flag;
-    } else {
-        P &= ~negative_flag;
-    }
+    update_zero_flag(A);
+    update_negative_flag(A);
 };
 
 void CPU::cpu_asl() {
@@ -369,40 +328,17 @@ void CPU::cpu_asl() {
 
 void CPU::cpu_bit() {
 // - test bits in m with a
-    if ((A & op_value) == 0) {
-        P |= zero_flag;
-    } else {
-        P &= ~zero_flag;
-    }
-
-    if ((op_value >> 6) & 0x1) {
-        P |= overflow_flag;
-    } else {
-        P &= ~overflow_flag;
-    }
-
-    if ((op_value >> 7) & 0x1) {
-        P |= negative_flag;
-    } else {
-        P &= ~negative_flag;
-    }
+    update_zero_flag(A & op_value);
+    update_overflow_flag(op_value);
+    update_negative_flag(op_value);
 };
 
 void CPU::cpu_eor() {
 // - "exclusive-or" m with a
     A ^= op_value;
 
-    if (A == 0) {
-        P |= zero_flag;
-    } else {
-        P &= ~zero_flag;
-    }
-
-    if ((A >> 7) & 0x1) {
-        P |= negative_flag;
-    } else {
-        P &= ~negative_flag;
-    }
+    update_zero_flag(A);
+    update_negative_flag(A);
 };
 
 void CPU::cpu_lsr() {
@@ -414,17 +350,8 @@ void CPU::cpu_ora() {
 // - "or" m with a
     A |= op_value;
 
-    if (A == 0) {
-        P |= zero_flag;
-    } else {
-        P &= ~zero_flag;
-    }
-
-    if ((A >> 7) & 0x1) {
-        P |= negative_flag;
-    } else {
-        P &= ~negative_flag;
-    }
+    update_zero_flag(A);
+    update_negative_flag(A);
 };
 
 void CPU::cpu_rol() {
@@ -592,33 +519,29 @@ void CPU::cpu_clv() {
 
 void CPU::cpu_cmp() {
 // - compare m and a
-    if (A >= op_value) {
-        P |= carry_flag;
-    } else {
-        P &= ~carry_flag;
-    }
+    word res = A - op_value;
 
-    if (A == op_value) {
-        P |= zero_flag;
-    } else {
-        P &= ~zero_flag;
-    }
-
-    if (((A - op_value) >> 7) & 0x01) {
-        P |= negative_flag;
-    } else {
-        P &= ~negative_flag;
-    }
+    update_carry_flag(A >= op_value);
+    update_zero_flag(res);
+    update_negative_flag(res);
 };
 
 void CPU::cpu_cpx() {
 // - compare m and x
+    word res = X - op_value;
 
+    update_carry_flag(X >= op_value);
+    update_zero_flag(res);
+    update_negative_flag(res);
 };
 
 void CPU::cpu_cpy() {
 // - compare m and y
+    word res = Y - op_value;
 
+    update_carry_flag(Y >= op_value);
+    update_zero_flag(res);
+    update_negative_flag(res);
 };
 
 void CPU::cpu_sec() {
@@ -656,17 +579,8 @@ void CPU::cpu_pla() {
     byte from_stack = memory[0xff + SP];
     A = from_stack;
 
-    if (A == 0) {
-        P |= zero_flag;
-    } else {
-        P &= ~zero_flag;
-    }
-
-    if ((A >> 7) & 0x01) {
-        P |= negative_flag;
-    } else {
-        P &= ~negative_flag;
-    }
+    update_zero_flag(A);
+    update_negative_flag(A);
 };
 
 void CPU::cpu_plp() {

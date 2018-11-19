@@ -82,3 +82,47 @@ void CPU::log_state() {
     //std::cout << " CYC: "  << std::setw(7)  << cpu_cycles;
     std::cout << std::endl;
 }
+
+void CPU::update_carry_flag(bool is_set) {
+    if (is_set) {
+        P |= carry_flag;
+    } else {
+        P &= ~carry_flag;
+    }
+};
+
+void CPU::update_zero_flag(word value) {
+    if (value == 0) {
+        P |= zero_flag;
+    } else {
+        P &= ~zero_flag;
+    }
+};
+
+void CPU::update_interrupt_flag(word value) {
+    std::cout << "INTERRUPT FLAG NOT IMPLEMENTED\n";
+};
+
+void CPU::update_decimal_flag(word value) {
+    std::cout << "DEDIMAL FLAG NOT IMPLEMENTED\n";
+};
+
+void CPU::update_break_flag(word value) {
+    std::cout << "BREAK FLAG NOT IMPLEMENTED\n";
+};
+
+void CPU::update_overflow_flag(word value) {
+    if ((value >> 6) & 0x1) {
+        P |= overflow_flag;
+    } else {
+        P &= ~overflow_flag;
+    }
+};
+
+void CPU::update_negative_flag(word value) {
+    if ((value >> 7) & 0x1) {
+        P |= negative_flag;
+    } else {
+        P &= ~negative_flag;
+    }
+};
