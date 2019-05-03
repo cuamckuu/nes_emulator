@@ -16,8 +16,9 @@ int main() {
 	cpu.init();
 	cpu.reset();
 	cpu.PC = 0xC000;
+    cpu.cpu_cycles = 7;
 
-	cpu.run(415, true);
+	cpu.run(15583, true);
 
 	return 0;
 }

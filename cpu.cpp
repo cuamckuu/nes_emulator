@@ -30,7 +30,7 @@ void CPU::load_rom_to_memory(ROM rom) {
         exit(1);
     }
 
-    std::cout << "ROM loaded to memory\n";
+    std::cout << "ROM loaded to memory\n\n";
 }
 
 void CPU::init() {
@@ -41,19 +41,27 @@ void CPU::init() {
 
 void CPU::reset() {
     PC = (memory[0xFFFD] << 8) + memory[0xFFFC];
+
     SP -= 3;
     P |= interrupt_flag;
 }
 
 void CPU::run(long cycles, bool debug=false) {
-    if (debug) {
-        log_state();
-        std::cout << "\n";
-    }
-
     while (cycles > 0) {
         byte op_code = memory[PC++];
         Instruction inst = get_instruction(op_code);
+        if (op_code == 0xff || inst.name[0] == 'N') {
+            inst.log_info();
+            std::cout << "\nInstruction not implemented.\n";
+            break;
+        }
+
+        if (debug) {
+            std::cout << std::setw(4) << std::hex << (int)(PC-1) << " ";
+            inst.log_info();
+            log_state();
+        }
+
         (this->*inst.address_func_ptr)();
         (this->*inst.func_ptr)();
 
@@ -62,25 +70,30 @@ void CPU::run(long cycles, bool debug=false) {
         extra_cycles = 0;
 
         cpu_cycles += inst.cycles;
-        if (debug) {
-            inst.log_info();
-            log_state();
-            std::cout << "\n";
+
+        if (cpu_cycles == 0 || cpu_cycles == 0 || cpu_cycles == 0) {
+            log_stack();
         }
     }
 }
 
 void CPU::log_state() {
-    std::cout << std::left;
-    std::cout << " PC: 0x" << std::setw(10) << std::hex << (int)PC;
-    std::cout << " SP: 0x" << std::setw(10) << std::hex << (int)SP;
-    std::cout << " A: 0x"  << std::setw(7)  << std::hex << (int)A;
-    std::cout << " X: 0x"  << std::setw(7)  << std::hex << (int)X;
-    std::cout << " Y: 0x"  << std::setw(7)  << std::hex << (int)Y;
-    std::cout << " P: 0x"  << std::setw(7)  << std::hex << (int)P;
-    std::cout << std::dec;
-    //std::cout << " CYC: "  << std::setw(7)  << cpu_cycles;
+    std::cout << "A:"    << std::setw(2) << std::hex << (int)A;
+    std::cout << " X:"   << std::setw(2) << std::hex << (int)X;
+    std::cout << " Y:"   << std::setw(2) << std::hex << (int)Y;
+    std::cout << " P:"   << std::setw(2) << std::hex << (int)P;
+    std::cout << " SP:"  << std::setw(2) << std::hex << (int)SP;
+    std::cout << " CYC:" << std::setw(5) << std::dec << cpu_cycles;
     std::cout << std::endl;
+}
+
+void CPU::log_stack() {
+    for (int i = 0x0100; i <= 0x01FF; i++) {
+        int val = memory[i];
+        if (val != 0) {
+            std::cout << std::hex << i << ":" << val << std::endl;
+        }
+    }
 }
 
 void CPU::update_carry_flag(bool is_set) {
@@ -111,8 +124,8 @@ void CPU::update_break_flag(word value) {
     std::cout << "BREAK FLAG NOT IMPLEMENTED\n";
 };
 
-void CPU::update_overflow_flag(word value) {
-    if ((value >> 6) & 0x1) {
+void CPU::update_overflow_flag(bool is_set) {
+    if (is_set) {
         P |= overflow_flag;
     } else {
         P &= ~overflow_flag;

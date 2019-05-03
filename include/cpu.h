@@ -11,6 +11,11 @@
 using byte = uint8_t;
 using word = uint16_t;
 
+const word ADDRESS_NMI = 0xFFFA;
+const word ADDRESS_RESET = 0xFFFC;
+const word ADDRESS_BRK = 0xFFFE;
+const word ADDRESS_TEST_PROGRAMM = 0xC000;
+
 struct CPU {
     byte memory[0x10000];
 
@@ -29,6 +34,7 @@ struct CPU {
 	void init();
 	void reset();
 	void log_state();
+	void log_stack();
     void execute_instruction(Instruction nst);
     Instruction get_instruction(byte op_code);
 	void run(long cycles, bool debug);
@@ -40,7 +46,7 @@ private: //Flags check
     void update_interrupt_flag(word value);
     void update_decimal_flag(word value);
     void update_break_flag(word value);
-    void update_overflow_flag(word value);
+    void update_overflow_flag(bool is_set);
     void update_negative_flag(word value);
 
 private: //CPU instructions
@@ -73,12 +79,16 @@ private: //CPU instructions
     //Bitwise
     void cpu_and(); // - "and" m with a
     void cpu_asl(); // - shift left one bit (m or a)
+    void cpu_asla(); // - shift left one bit (m or a)
     void cpu_bit(); // - test bits in m with a
     void cpu_eor(); // - "exclusive-or" m with a
     void cpu_lsr(); // - shift right one bit (m or a)
+    void cpu_lsra(); // - shift right one bit (m or a)
     void cpu_ora(); // - "or" m with a
     void cpu_rol(); // - rotate one bit left (m or a)
+    void cpu_rola(); // - rotate one bit left (m or a)
     void cpu_ror(); // - rotate one bit right (m or a)
+    void cpu_rora(); // - rotate one bit right (m or a)
 
     //Branch
     void cpu_bcc(); // - branch on carry clear
